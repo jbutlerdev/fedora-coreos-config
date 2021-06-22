@@ -28,7 +28,4 @@ packages:
   # Remote Access
   - openssh-clients openssh-server
   # Container tooling
-  - podman
   - runc
-  - skopeo
-  - toolbox
