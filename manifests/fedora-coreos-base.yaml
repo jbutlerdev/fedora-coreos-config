@@ -126,9 +126,7 @@ packages:
   # Containers
   - systemd-container catatonit
   - fuse-overlayfs slirp4netns
-  # name resolution for podman containers
-  # https://github.com/coreos/fedora-coreos-tracker/issues/519
-  - podman-plugins dnsmasq
+  - dnsmasq
   # Remote IPC for podman
   - libvarlink-util
   # Minimal NFS client
