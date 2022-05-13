@@ -12,6 +12,11 @@ install_and_enable_unit() {
     systemctl -q --root="$initdir" add-requires "$target" "$unit" || exit 1
 }
 
+installkernel() {
+    # we do loopmounts
+    instmods -c loop
+}
+
 install() {
     inst_multiple \
         bsdtar \
@@ -47,7 +52,4 @@ install() {
 
     install_and_enable_unit "coreos-livepxe-persist-osmet.service" \
         "default.target"
-
-    inst_simple "$moddir/coreos-liveiso-reconfigure-nm-wait-online.service" \
-        "$systemdsystemunitdir/coreos-liveiso-reconfigure-nm-wait-online.service"
 }

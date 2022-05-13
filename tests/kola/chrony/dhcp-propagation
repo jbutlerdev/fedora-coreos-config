@@ -1,16 +1,26 @@
 #!/bin/bash
-
+# kola: { "tags": "needs-internet", "platforms": "qemu-unpriv", "timeoutMin": 15 }
 # This script creates two veth interfaces i.e. one for the host machine 
 # and other for the container(dnsmasq server). This setup will be helpful
 # to verify the DHCP propagation of NTP servers. This will also avoid any 
 # regression that might cause in RHCOS or FCOS when the upstream changes 
 # come down and obsolete the temporary work (https://github.com/coreos/fedora-coreos-config/pull/412)
+#
+# - tags: needs-internet
+#   - This test builds a container from remote sources.
+#   - This test uses a remote NTP server.
+# - platforms: qemu-unpriv
+#   - Limit it to qemu because some cloud providers have their own
+#     special sauce for NTP/chrony and we don't want to interfere with
+#     that.
+# - timeoutMin: 15
+#   - Pulling and building the container can take a long time if a
+#     slow mirror gets chosen.
 
 set -xeuo pipefail
 
 # Just run on QEMU; it should work theoretically on cloud platforms, but many
 # of those have platform-specific sources which take precedence.
-# kola: { "tags": "needs-internet", "platforms": "qemu-unpriv" }
 
 test_setup() {
 
@@ -29,13 +39,10 @@ test_setup() {
     ip netns exec container ip link set veth-container up
 
     # run podman commands to set up dnsmasq server
-    pushd $(mktemp -d)
-    # XXX: hardcode IP for now until can resolve in CentOS CI again
-    #      https://pagure.io/centos-infra/issue/356
-    #NTPHOSTIP=$(getent hosts time-c-g.nist.gov | cut -d ' ' -f 1)
-    NTPHOSTIP='129.6.15.30'
+    pushd "$(mktemp -d)"
+    NTPHOSTIP=$(getent hosts time-c-g.nist.gov | cut -d ' ' -f 1)
     cat <<EOF >Dockerfile
-FROM registry.fedoraproject.org/fedora:34
+FROM registry.fedoraproject.org/fedora:35
 RUN dnf -y install systemd dnsmasq iproute iputils \
 && dnf clean all \
 && systemctl enable dnsmasq

@@ -1,0 +1,69 @@
+# This manifest is a list of shared workarounds that are needed in both Fedora CoreOS
+# and downstreams (i.e. Red Hat CoreOS).
+
+postprocess:
+  # Put in the fix for multipathd.socket on releases that haven't been fixed yet.
+  # https://bugzilla.redhat.com/show_bug.cgi?id=2008098
+  # https://github.com/coreos/fedora-coreos-config/pull/1246
+  - |
+    #!/usr/bin/env bash
+    set -xeuo pipefail
+    # Operate on RHCOS and FCOS. 
+    source /etc/os-release
+    if [[ ${NAME} =~ "Fedora" ]]; then
+        # FCOS: Only operate on releases before F36. The fix has landed
+        # in F36+ and there is no need for a workaround.
+        [ ${VERSION_ID} -le 35 ] || exit 0
+    elif [[ "${ID}" == "rhel" ]]; then
+        # RHCOS: Only operate on releases before RHEL8.5. The fix has 
+        # landed in RHEL8.6+ and there is no need for a workaround.
+        # https://bugzilla.redhat.com/show_bug.cgi?id=2008101
+        # Fixed RPM version: device-mapper-multipath-0.8.4-18.el8
+        # Using generic redhat-release package according to 
+        # https://github.com/openshift/os/pull/713, should check RHEL version
+        # with VERSION_ID
+        [ ${VERSION_ID//.} -le 85 ] || exit 0
+    fi
+    mkdir /usr/lib/systemd/system/multipathd.socket.d
+    cat > /usr/lib/systemd/system/multipathd.socket.d/50-start-conditions.conf <<'EOF'
+    # Temporary workaround for https://bugzilla.redhat.com/show_bug.cgi?id=2008098
+    [Unit]
+    ConditionKernelCommandLine=!multipath=off
+    ConditionKernelCommandLine=!nompath
+    ConditionPathExists=/etc/multipath.conf
+    ConditionVirtualization=!container
+    EOF
+
+  # Put in the fix for multipathd.service in dracut on releases that haven't
+  # been fixed yet.
+  # https://github.com/dracutdevs/dracut/pull/1606
+  # https://github.com/coreos/fedora-coreos-config/pull/1233
+  - |
+    #!/usr/bin/env bash
+    set -xeuo pipefail
+    source /etc/os-release
+    if [[ ${NAME} =~ "Fedora" ]]; then
+        # FCOS: This fix has landed in F36+
+        [ ${VERSION_ID} -le 35 ] || exit 0
+    else 
+        # RHCOS: The fix hasn't landed in any version of RHEL yet
+        true
+    fi
+    mkdir /usr/lib/dracut/modules.d/36coreos-multipath-fix
+    cat > /usr/lib/dracut/modules.d/36coreos-multipath-fix/90-multipathd-remove-execstop.conf <<'EOF'
+    # Temporary workaround for https://github.com/dracutdevs/dracut/pull/1606.
+    [Service]
+    ExecStop=
+    EOF
+    cat > /usr/lib/dracut/modules.d/36coreos-multipath-fix/module-setup.sh <<'EOF'
+    #!/bin/bash
+    # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+    # ex: ts=8 sw=4 sts=4 et filetype=sh
+    install() {
+        # Temporary workaround for https://github.com/dracutdevs/dracut/pull/1606.
+        mkdir -p "$systemdsystemunitdir/multipathd.service.d"
+        inst_simple "$moddir/90-multipathd-remove-execstop.conf" \
+        "$systemdsystemunitdir/multipathd.service.d/90-multipathd-remove-execstop.conf"
+    }
+    EOF
+    chmod +x /usr/lib/dracut/modules.d/36coreos-multipath-fix/module-setup.sh

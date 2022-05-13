@@ -8,6 +8,29 @@ include:
   - networking-tools.yaml
   - system-configuration.yaml
   - user-experience.yaml
+  - shared-workarounds.yaml
+
+ostree-layers:
+  - overlay/05core
+  - overlay/08nouveau
+  - overlay/09misc
+  - overlay/14NetworkManager-plugins
+  - overlay/20platform-chrony
+
+conditional-include:
+  # https://github.com/coreos/fedora-coreos-tracker/issues/1130
+  - if: stream == "testing-devel"
+    include: varlink.yaml
+  - if: stream == "testing"
+    include: varlink.yaml
+  - if: stream == "stable"
+    include: varlink.yaml
+  # https://github.com/coreos/fedora-coreos-tracker/issues/676
+  - if: releasever >= 36
+    include: iptables-nft.yaml
+  # https://github.com/coreos/fedora-coreos-config/pull/1519
+  - if: releasever >= 36
+    include: podman-v4.yaml
 
 initramfs-args:
   - --no-hostonly
@@ -49,16 +72,6 @@ rpmdb: sqlite
 # ⚠⚠⚠ ONLY TEMPORARY HACKS ALLOWED HERE; ALL ENTRIES NEED TRACKER LINKS ⚠⚠⚠
 # See also the version of this in fedora-coreos.yaml
 postprocess:
-  # This will be dropped once rpm-ostree because module-aware.
-  # https://github.com/projectatomic/rpm-ostree/issues/1542#issuecomment-419684977
-  # https://github.com/projectatomic/rpm-ostree/issues/1435
-  - |
-    #!/usr/bin/env bash
-    set -xeuo pipefail
-    for x in /etc/yum.repos.d/*modular.repo; do
-      sed -i -e 's,enabled=[01],enabled=0,' ${x}
-    done
-
   # Enable SELinux booleans used by OpenShift
   # https://github.com/coreos/fedora-coreos-tracker/issues/284
   - |
@@ -80,30 +93,23 @@ postprocess:
   - |
     #!/usr/bin/env bash
     systemctl mask systemd-repart.service
-
-  # Neuter systemd-resolved for now.
-  # https://github.com/coreos/fedora-coreos-tracker/issues/649#issuecomment-743219353
-  # Note: When removing this, we likely also want to remove
-  # coreos-reset-stub-resolv-selinux-context.{path,service} and their presets.
+  # Mask systemd-network-generator. We need it for some things in the future
+  # (https://github.com/systemd/systemd/pull/21766/files), but for now it's
+  # just failing for Fedora 35 on boot because of SELinux:
+  # https://github.com/coreos/fedora-coreos-tracker/issues/1059#issuecomment-1090602396
   - |
     #!/usr/bin/env bash
-    set -xeuo pipefail
-    # Get us back to Fedora 32's nsswitch.conf settings
-    sed -i 's/^hosts:.*/hosts:      files dns myhostname/' /etc/nsswitch.conf
-    mkdir -p /usr/lib/systemd/resolved.conf.d/
-    cat > /usr/lib/systemd/resolved.conf.d/fedora-coreos-stub-listener.conf <<'EOF'
-    # Fedora CoreOS is electing to not use systemd-resolved's internal
-    # logic for now because of issues with setting hostnames via reverse DNS.
-    # https://github.com/coreos/fedora-coreos-tracker/issues/649#issuecomment-736104003
-    [Resolve]
-    DNSStubListener=no
-    EOF
+    source /etc/os-release
+    if [ "$VERSION_ID" -eq "35" ]; then
+      systemctl mask systemd-network-generator.service
+    fi
 
-  # Set the fallback hostname to `localhost`. This piggybacks on the
-  # postprocess script above which neuters systemd-resolved, because
-  # currently, a fallback hostname of `localhost` + systemd-resolved breaks
-  # rDNS. Eventually, we should be able to drop this at the same time as we drop
-  # the above. See: https://bugzilla.redhat.com/show_bug.cgi?id=1892235#c25
+  # Set the fallback hostname to `localhost`. This was needed in F33/F34
+  # because a fallback hostname of `fedora` + systemd-resolved broke
+  # rDNS. It's now fixed in F35+ NetworkManager to handle the corner cases
+  # around synthetized hostnames and systemd-resolved, but the question
+  # remains on what is a more appropriate default hostname for a server like
+  # host. https://github.com/coreos/fedora-coreos-tracker/issues/902
   - |
     #!/usr/bin/env bash
     source /etc/os-release
@@ -111,16 +117,26 @@ postprocess:
       echo 'DEFAULT_HOSTNAME=localhost' >> /usr/lib/os-release
     fi
 
+  # Fedora 37 adds the nvmf dracut module to the initrd, causing
+  # ext.config.files.dracut-executable to notice that the module puts a
+  # non-executable file in /usr/sbin.  Dracut has been updated to fix the
+  # missing permission, and hopefully this can be removed for Fedora 38.
+  # https://github.com/coreos/fedora-coreos-tracker/issues/1155
+  # https://github.com/dracutdevs/dracut/pull/1777
+  - |
+    #!/usr/bin/env bash
+    set -xeuo pipefail
+    source /etc/os-release
+    if [ ${VERSION_ID} -le 37 ]; then
+        chmod +x /usr/lib/dracut/modules.d/95nvmf/nvmf-autoconnect.sh
+    fi
+
 # Packages listed here should be specific to Fedore CoreOS (as in not yet
 # available in RHCOS or not desired in RHCOS). All other packages should go
 # into one of the sub-manifests listed at the top.
 packages:
-  # Container tooling
-  - crun
   # Security
   - polkit
-  # System setup
-  - afterburn-dracut
   # SSH
   - ssh-key-dir
   # Containers
@@ -129,6 +145,11 @@ packages:
   - dnsmasq
   # Remote IPC for podman
   - libvarlink-util
+  # support for old style CNI networks and name resolution for
+  # podman containers with CNI networks
+  # https://github.com/coreos/fedora-coreos-tracker/issues/519
+  # https://github.com/coreos/fedora-coreos-tracker/issues/1128#issuecomment-1071338097
+  - containernetworking-plugins podman-plugins dnsmasq
   # Minimal NFS client
   - nfs-utils-coreos
   # Active Directory support
@@ -160,11 +181,15 @@ packages:
   - console-login-helper-messages-motdgen
   # i18n
   - kbd
-  # nvme-cli for managing nvme disks
-  - nvme-cli
   # zram-generator (but not zram-generator-defaults) for F33 change
   # https://github.com/coreos/fedora-coreos-tracker/issues/509
   - zram-generator
+  # resolved was broken out to its own package in rawhide/f35
+  - systemd-resolved
+  # In F35+ need `iptables-legacy` package
+  # See https://github.com/coreos/fedora-coreos-tracker/issues/676#issuecomment-928028451
+  - iptables-legacy
+
 
 # This thing is crying out to be pulled into systemd, but that hasn't happened
 # yet.  Also we may want to add to rpm-ostree something like arch negation;
@@ -186,3 +211,9 @@ packages-aarch64:
 arch-include:
   x86_64: bootupd.yaml
   aarch64: bootupd.yaml
+
+remove-from-packages:
+  # Hopefully short-term hack -- see https://github.com/coreos/fedora-coreos-config/pull/1206#discussion_r705425869.
+  # This keeps the size down and ensures nothing tries to use it, preventing us
+  # from shedding the dep eventually.
+  - [cracklib-dicts, .*]

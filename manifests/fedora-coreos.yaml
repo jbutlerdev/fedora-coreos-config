@@ -2,10 +2,31 @@
 # into "official" builds of Fedora CoreOS (such as including `fedora-release-coreos`)
 # or are very "opinionated" like disabling SSH passwords by default.
 
+ref: fedora/${basearch}/coreos/${stream}
+rojig:
+  license: MIT
+  name: fedora-coreos
+  summary: Fedora CoreOS ${stream}
+
+add-commit-metadata:
+  fedora-coreos.stream: ${stream}
+
+
 include: fedora-coreos-base.yaml
+conditional-include:
+  - if: prod == false
+    # long-term, would be good to support specifying a nested TreeComposeConfig
+    include: disable-zincati-and-pinger.yaml
+
+ostree-layers:
+  - overlay/15fcos
 
 automatic-version-prefix: "${releasever}.<date:%Y%m%d>.dev"
 mutate-os-release: "${releasever}"
+
+# All Fedora CoreOS streams share the same pool for locked files.
+lockfile-repos:
+  - fedora-coreos-pool
 
 packages:
   - fedora-release-coreos
@@ -16,16 +37,28 @@ packages:
   # the archive repo for more reliable package layering
   # https://github.com/coreos/fedora-coreos-tracker/issues/400
   - fedora-repos-archive
+  # CL ships this.
+  - moby-engine
+  # Already pulled in by moby-engine, but let's be explicit. Typhoon uses it.
+  - containerd
   # User metrics
   - fedora-coreos-pinger
   # Updates
   - zincati
+  # Include and set the default editor
+  - nano nano-default-editor
 
 # XXX: this is used by coreos-assembler for artifact naming...
 rojig:
   license: MIT
   name: fedora-coreos
   summary: Fedora CoreOS base image
+etc-group-members:
+  # Add the docker group to /etc/group
+  # https://github.com/coreos/fedora-coreos-tracker/issues/2
+  # This will be no longer needed when systemd-sysusers has been implemented:
+  # https://github.com/projectatomic/rpm-ostree/issues/49
+  - docker
 
 # ⚠⚠⚠ ONLY TEMPORARY HACKS ALLOWED HERE; ALL ENTRIES NEED TRACKER LINKS ⚠⚠⚠
 # See also the version of this in fedora-coreos-base.yaml

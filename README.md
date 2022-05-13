@@ -1,4 +1,7 @@
 # Fedora CoreOS Config
+
+[![next-devel status](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/coreos/fedora-coreos-pipeline/main/next-devel/badge.json)](https://github.com/coreos/fedora-coreos-pipeline/blob/main/next-devel/README.md)
+
 Base manifest configuration for
 [Fedora CoreOS](https://coreos.fedoraproject.org/).
 
@@ -14,21 +17,24 @@ https://github.com/coreos/fedora-coreos-tracker.
 There is one branch for each stream. The default branch is
 [`testing-devel`](https://github.com/coreos/fedora-coreos-config/commits/testing-devel),
 on which all development happens. See
-[the design](https://github.com/coreos/fedora-coreos-tracker/blob/main//Design.md#release-streams)
-and [tooling](https://github.com/coreos/fedora-coreos-tracker/blob/main//stream-tooling.md)
+[the design](https://github.com/coreos/fedora-coreos-tracker/blob/main/Design.md#release-streams)
+and [tooling](https://github.com/coreos/fedora-coreos-tracker/blob/main/stream-tooling.md)
 docs for more information about streams.
 
 All file changes in `testing-devel` are propagated to other
-branches (to `bodhi-updates` through
+branches (to `next-devel`, `branched`, and `rawhide` through
 [config-bot](https://github.com/coreos/fedora-coreos-releng-automation/tree/main/config-bot),
-and to `testing` through usual promotion), with the
-following exceptions:
-- `manifest.yaml`: contains the stream "identity", such as
-  the ref, additional commit metadata, and yum input repos.
-- lockfiles (`manifest-lock.*` files): lockfiles are
-  imported from `bodhi-updates` to `testing-devel`.
-  Overrides (`manifest-lock.overrides.*`) are manually
-  curated.
+and to `testing` and eventually `stable` through usual
+promotion), with the following exceptions:
+- `manifest.yaml`: contains the stream's name, yum repos
+  used during composes, and the `releasever`.
+- lockfiles (`manifest-lock.*` files): on `testing-devel`
+  and `next-devel`, lockfiles are pushed by
+  [the `bump-lockfile` job](https://github.com/coreos/fedora-coreos-pipeline/blob/main/jobs/bump-lockfile.Jenkinsfile).
+  Production streams receive them as part of usual
+  promotion. Overrides (`manifest-lock.overrides.*`) are
+  managed independently with the help of some GitHub Actions
+  (see sections below).
 
 ## Layout
 
@@ -52,7 +58,10 @@ hold back some packages, or pull in fixes ahead of Bodhi. To
 add such overrides, one needs to add the packages to
 `manifest-lock.overrides.yaml` (there are also arch-specific
 variants of these files for the rare occasions the override
-should only apply to a specific arch).
+should only apply to a specific arch). There is a
+[tool](ci/overrides.py) to help with this, and for simple
+cases, an [automated workflow](https://github.com/coreos/fedora-coreos-config/actions/workflows/add-override.yml)
+that runs the tool and submits a PR.
 
 Note that comments are not preserved in these files. The
 lockfile supports arbitrary keys under the `metadata` key to
@@ -129,8 +138,11 @@ the corresponding entries in the lockfiles:
 There will be better tooling to come to enable this, though
 one easy way to do this is for now:
 - add packages to the correct YAML manifest
-- run `cosa fetch --update-lockfile`
-- commit only the new package entries
+- run `cosa fetch --update-lockfile` (this will only update the lockfile for
+  the current architecture, most likely `x86_64`)
+- copy the new lines to the lockfiles for other architectures (i.e. `aarch64`)
+- commit only the new package entries (skip the timestamped changes to avoid
+  merge conflicts with the lockfile updates made by the bot)
 
 ## Moving to a new major version (N) of Fedora
 
@@ -142,3 +154,22 @@ Pull requests submitted to this repo are tested by
 [CoreOS CI](https://github.com/coreos/coreos-ci). You can see the pipeline
 executed in `.cci.jenkinsfile`. For more information, including interacting with
 CI, see the [CoreOS CI documentation](https://github.com/coreos/coreos-ci/blob/main/README-upstream-ci.md).
+
+## Tests layout
+Tests should follow the following format:
+
+```bash
+#!/bin/bash
+# kola: { "exclusive": false }    <-- kola option comment. See all options in <https://coreos.github.io/coreos-assembler/kola/external-tests/#kolajson>
+# Short summary of what the test does, why we need it, etc.
+# Should also explain the reasons behind the non-obvious options selected above.
+# Optional: Link to corresponding issue or PR
+
+set -euxo pipefail
+
+. $KOLA_EXT_DATA/commonlib.sh
+
+foo_bar()    <-- Other function definitions
+
+if ...    <-- Actual test code. Errors must be raised with `fatal()`. Does not need to end with a call to `ok()`
+```

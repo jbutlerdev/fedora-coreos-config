@@ -31,5 +31,15 @@ rm -vrf ${initramfs_firstboot_network_dir}
 # append rootmap kargs to the BLS configs.
 root=$(karg root)
 if [ -z "${root}" ]; then
-    /usr/bin/rdcore rootmap /sysroot --boot-mount ${bootmnt}
+    rdcore rootmap /sysroot --boot-mount ${bootmnt}
 fi
+
+# This does a few things:
+# 1. it puts the boot UUID in /run/coreos/bootfs_uuid which is used by the real
+#    root for mounting the bootfs in this boot
+# 2. it adds a boot=UUID= karg which is used by the real root for mounting the
+#    bootfs in subsequent boots
+# 3. it create a .root_uuid stamp file on the bootfs or fails if one exists
+# 4. it adds GRUB bootuuid.cfg dropins so that GRUB selects the boot filesystem
+#    by UUID
+rdcore bind-boot /sysroot ${bootmnt}

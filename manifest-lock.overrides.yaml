@@ -4,72 +4,8 @@
 #
 # IMPORTANT: YAML comments *will not* be preserved. All `pin` overrides *must*
 # include a URL in the `metadata.reason` key. Overrides of type `fast-track`
-# *should* include a URL in the `metadata.reason` key, though it's acceptable to
-# omit one for FCOS-specific packages (e.g. ignition, afterburn, etc...).
+# *should* include a Bodhi update URL in the `metadata.bodhi` key and a URL
+# in the `metadata.reason` key, though it's acceptable to omit a `reason`
+# for FCOS-specific packages (ignition, afterburn, etc.).
 
-packages:
-  dracut:
-    evr: 053-5.fc34
-    metadata:
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/842
-      type: pin
-  dracut-network:
-    evr: 053-5.fc34
-    metadata:
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/842
-      type: pin
-  ignition:
-    evr: 2.11.0-1.fc34
-    metadata:
-      type: fast-track
-  kernel:
-    evr: 5.12.19-300.fc34
-    metadata:
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/904
-      type: fast-track
-  kernel-core:
-    evr: 5.12.19-300.fc34
-    metadata:
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/904
-      type: fast-track
-  kernel-modules:
-    evr: 5.12.19-300.fc34
-    metadata:
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/904
-      type: fast-track
-  systemd:
-    evr: 248.5-1.fc34
-    metadata:
-      bodhi: https://bodhi.fedoraproject.org/updates/FEDORA-2021-2a6ba64260
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/904
-      type: fast-track
-  systemd-container:
-    evr: 248.5-1.fc34
-    metadata:
-      bodhi: https://bodhi.fedoraproject.org/updates/FEDORA-2021-2a6ba64260
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/904
-      type: fast-track
-  systemd-libs:
-    evr: 248.5-1.fc34
-    metadata:
-      bodhi: https://bodhi.fedoraproject.org/updates/FEDORA-2021-2a6ba64260
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/904
-      type: fast-track
-  systemd-pam:
-    evr: 248.5-1.fc34
-    metadata:
-      bodhi: https://bodhi.fedoraproject.org/updates/FEDORA-2021-2a6ba64260
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/904
-      type: fast-track
-  systemd-udev:
-    evr: 248.5-1.fc34
-    metadata:
-      bodhi: https://bodhi.fedoraproject.org/updates/FEDORA-2021-2a6ba64260
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/904
-      type: fast-track
-  systemd-rpm-macros:
-    evra: 248.5-1.fc34.noarch
-    metadata:
-      bodhi: https://bodhi.fedoraproject.org/updates/FEDORA-2021-2a6ba64260
-      reason: https://github.com/coreos/fedora-coreos-tracker/issues/904
-      type: fast-track
+packages: {}

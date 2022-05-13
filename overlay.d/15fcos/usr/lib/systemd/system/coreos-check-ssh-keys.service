@@ -12,11 +12,13 @@ After=afterburn-sshkeys.target
 # get misleading messages. Also handles the case where the journal
 # gets rotated and no longer has the structured log messages.
 ConditionKernelCommandLine=ignition.firstboot
+# Run before user sessions to avoid reloading agetty
+Before=systemd-user-sessions.service
 
 [Service]
 Type=oneshot
 ProtectHome=read-only
-ExecStart=/usr/libexec/coreos-check-ssh-keys.sh
+ExecStart=/usr/libexec/coreos-check-ssh-keys
 RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target

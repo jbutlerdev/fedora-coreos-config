@@ -3,7 +3,7 @@
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 
 depends() {
-    echo systemd network ignition
+    echo systemd network ignition coreos-live
 }
 
 install_ignition_unit() {
@@ -22,6 +22,7 @@ install() {
         diff \
         lsblk \
         sed \
+        grep \
         sgdisk
 
     inst_simple "$moddir/coreos-diskful-generator" \
@@ -29,6 +30,15 @@ install() {
 
     inst_script "$moddir/coreos-gpt-setup.sh" \
         "/usr/sbin/coreos-gpt-setup"
+
+    inst_simple "$moddir/80-coreos-boot-disk.rules" \
+        "/usr/lib/udev/rules.d/80-coreos-boot-disk.rules"
+
+    inst_script "$moddir/coreos-disk-contains-fs.sh" \
+        "/usr/lib/udev/coreos-disk-contains-fs"
+
+    inst_script "$moddir/coreos-ignition-setup-user.sh" \
+        "/usr/sbin/coreos-ignition-setup-user"
 
     # For consistency tear down the network and persist multipath between the initramfs and
     # real root. See https://github.com/coreos/fedora-coreos-tracker/issues/394#issuecomment-599721763
@@ -43,7 +53,7 @@ install() {
     # dracut inst_script doesn't allow overwrites and we are replacing
     # the default script placed by Ignition
     binpath="/usr/sbin/ignition-kargs-helper"
-    mv "$moddir/coreos-kargs.sh" "$initdir$binpath"
+    cp "$moddir/coreos-kargs.sh" "$initdir$binpath"
     install_ignition_unit coreos-kargs-reboot.service
 
     inst_script "$moddir/coreos-boot-edit.sh" \
@@ -52,4 +62,6 @@ install() {
     install_ignition_unit "coreos-boot-edit.service" \
         "ignition-diskful.target"
 
+    install_ignition_unit coreos-unique-boot.service ignition-diskful.target
+    install_ignition_unit coreos-ignition-setup-user.service
 }

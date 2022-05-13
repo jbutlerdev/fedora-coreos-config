@@ -5,8 +5,30 @@
   tracker: https://github.com/coreos/coreos-assembler/pull/1478
 - pattern: podman.workflow
   tracker: https://github.com/coreos/coreos-assembler/pull/1478
-- pattern: ext.config.podman.rootless-systemd
-  tracker: https://github.com/containers/buildah/issues/3071
+- pattern: ext.config.kdump.crash
+  tracker: https://github.com/coreos/fedora-coreos-tracker/issues/1075
+  arches:
+    - aarch64
+  platforms:
+    - aws
+- pattern: ext.config.kdump.crash
+  tracker: https://github.com/coreos/fedora-coreos-tracker/issues/1075
+  arches:
+    - ppc64le
+- pattern: coreos.boot-mirror.luks
+  tracker: https://github.com/coreos/coreos-assembler/issues/2725
+  arches:
+  - ppc64le
+- pattern: coreos.boot-mirror
+  tracker: https://github.com/coreos/coreos-assembler/issues/2725
+  arches:
+  - ppc64le
+- pattern: ext.config.systemd.sytemd-journald-fix
+  tracker: https://github.com/coreos/fedora-coreos-tracker/issues/1108#issuecomment-1105171521
+  snooze: 2022-05-05
   streams:
-    - branched
-    - rawhide
+    - stable
+    - testing
+    - testing-devel
+    - next
+    - next-devel
